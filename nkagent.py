@@ -20,10 +20,10 @@ class nkAgent:
         self.assign = assign
     
     def mutate(self, alpha=1):
-    """
-    This func mutates the agent and returns the new set of solution and score.
-    alpha here suggests a constant multiplying factor to reduce the risk through each time-step. This helps with the convergence.
-    """
+        """
+        This func mutates the agent and returns the new set of solution and score.
+        alpha here suggests a constant multiplying factor to reduce the risk through each time-step. This helps with the convergence.
+        """
         tmp_sol = self.sol.copy()
         index = list(range(self.n))
         mut_ind = np.random.choice(index, size = self.d)

@@ -18,9 +18,9 @@ class graphGenerator:
         self.g = self.core_peri_graph()
 
     def core_peri(self):
-    """
-    This function takes in the  n and m and gives out a list of core and periphery nodes
-    """
+        """
+        This function takes in the  n and m and gives out a list of core and periphery nodes
+        """
         index = list(range(self.n))
         core = np.random.choice(index, size = self.m, replace = False)
         peri = list(set(index) - set(core))
@@ -28,9 +28,9 @@ class graphGenerator:
         return core, peri
 
     def core_peri_graph(self):
-    """
-    This function takes in the core and peri nodes list from the core_peri() func and the value of pStar and generates a connected graph    
-    """
+        """
+        This function takes in the core and peri nodes list from the core_peri() func and the value of pStar and generates a connected graph
+        """
         core = self.core
         peri = self.peri
         rand_mat = np.zeros((self.n, self.n))

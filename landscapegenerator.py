@@ -14,10 +14,12 @@ class landscapeGenerator:
     def __init__(self, N, K):
         self.n = N #number of components
         self.k = K #complexity of interactions
+        self.a = 10
         self.nk = self.nk_landscape()
         self.dep = self.dependency_structure()
         self.max = np.max(self.nk)
         self.min = np.min(self.nk)
+        
 
     #displays N the number of components
     def disp_n(self):
@@ -47,8 +49,9 @@ class landscapeGenerator:
         Generates an NK landscape - an array of random numbers ~U(0, 1).
         '''
         nk = np.random.rand(self.n,2**(self.k+1),self.n)
-
-        return nk
+        func = np.vectorize(lambda s: ((1/np.exp(self.a))*(np.exp(self.a*s)-1)))
+        
+        return func(nk)
 
     #calculating the fitness of solution (searching through landscape the solution)
     def cal_fit(self, bit_str):
