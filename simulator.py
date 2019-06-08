@@ -7,6 +7,7 @@ import networkx as nx
 import matplotlib.pyplot as plt
 import time
 import os
+from progressbar import progressbar as pro
 
 
 
@@ -74,29 +75,33 @@ class Simulator(nkAgent):
             score_list.append([i, G.node[i]['agent'].score])
         max_neigh = max(score_list, key=lambda x: x[1])
 
-        if assign == 'exp_core':
+        if assign == 'exp_core' and j in core and G.node[j]['agent'].score < max_neigh[1] :
 
-            if G.node[j]['agent'].score >= max_neigh[1] and j in core and np.random.rand() <= p:
+            if np.random.rand() <= p:
+                G.node[j]['agent'].mutate(alpha)
+            else:
+                G.node[j]['agent'].sol = G.node[max_neigh[0]]['agent'].sol
+                G.node[j]['agent'].score = G.node[max_neigh[0]]['agent'].score
+
+        elif assign == 'exp_peri' and j in peri and G.node[j]['agent'].score < max_neigh[1] :
+
+            if np.random.rand() <= p:
+                G.node[j]['agent'].mutate(alpha)
+            else:
+                G.node[j]['agent'].sol = G.node[max_neigh[0]]['agent'].sol
+                G.node[j]['agent'].score = G.node[max_neigh[0]]['agent'].score
+
+        elif assign == 'random' and  G.node[j]['agent'].score < max_neigh[1]:
+
+            if np.random.rand() <= p:
                 G.node[j]['agent'].mutate(alpha)
             elif G.node[j]['agent'].score < max_neigh[1]:
                 G.node[j]['agent'].sol = G.node[max_neigh[0]]['agent'].sol
                 G.node[j]['agent'].score = G.node[max_neigh[0]]['agent'].score
 
-        elif assign == 'exp_peri':
-
-            if G.node[j]['agent'].score >= max_neigh[1] and j in peri and np.random.rand() <= p:
-                G.node[j]['agent'].mutate(alpha)
-            elif G.node[j]['agent'].score < max_neigh[1]:
-                G.node[j]['agent'].sol = G.node[max_neigh[0]]['agent'].sol
-                G.node[j]['agent'].score = G.node[max_neigh[0]]['agent'].score
-
-        elif assign == 'random':
-
-            if G.node[j]['agent'].score >= max_neigh[1] and np.random.rand() <= p:
-                G.node[j]['agent'].mutate(alpha)
-            elif G.node[j]['agent'].score < max_neigh[1]:
-                G.node[j]['agent'].sol = G.node[max_neigh[0]]['agent'].sol
-                G.node[j]['agent'].score = G.node[max_neigh[0]]['agent'].score
+        elif G.node[j]['agent'].score < max_neigh[1]:
+            G.node[j]['agent'].sol = G.node[max_neigh[0]]['agent'].sol
+            G.node[j]['agent'].score = G.node[max_neigh[0]]['agent'].score
 
         return G
 
@@ -192,12 +197,12 @@ def plot_all(result, title):
 if __name__ == '__main__':
     start = time.time()
     p = Pool(os.cpu_count())
-    res = p.starmap(Simulator, [('data', 0.5, 50,100),('data', 0.6, 50,100),('data', 0.7, 50,100),('data', 0.8, 50,100),('data', 0.9, 50,100)])
+    res = p.starmap(Simulator, [('data', 0.5, 50,50),('data', 0.6, 50,50),('data', 0.7, 50,50),('data', 0.8, 50,50),('data', 0.9, 50,50)])
     i = 0
     for r in res:
         with open(f'./data/multiprocess_results_{i}', 'wb') as f:
             pickle.dump(r.result,f)
         i+=1
     stop = time.time()
-    
+
     print(f'Total time taken for the process to finish is: {(stop-start)/60} Minutes')
