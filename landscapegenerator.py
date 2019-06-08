@@ -49,9 +49,9 @@ class landscapeGenerator:
         Generates an NK landscape - an array of random numbers ~U(0, 1).
         '''
         nk = np.random.rand(self.n,2**(self.k+1),self.n)
-        func = np.vectorize(lambda s: ((1/np.exp(self.a))*(np.exp(self.a*s)-1)))
+        #func = np.vectorize(lambda s: ((1/np.exp(self.a))*(np.exp(self.a*s)-1)))
         
-        return func(nk)
+        return nk
 
     #calculating the fitness of solution (searching through landscape the solution)
     def cal_fit(self, bit_str):
@@ -69,6 +69,7 @@ class landscapeGenerator:
                 inter_bits = tuple([bit_str[x] for x in dep_bit])
                 ind = ind_dict.index(inter_bits)
                 score += self.nk[i][ind][i]
-            return score / self.n
+            norm_score = ((1/np.exp(self.a))*(np.exp(self.a*(score / self.n))-1))
+            return norm_score
         else:
             return print('The length of bit string should be equal to the length of N')
