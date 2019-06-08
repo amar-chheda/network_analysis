@@ -4,10 +4,8 @@ from nkagent import nkAgent #this is a localy designed object
 import pickle
 from multiprocessing import Pool
 import networkx as nx
-import matplotlib.pyplot as plt
 import time
 import os
-from progressbar import progressbar as pro
 
 
 
@@ -18,25 +16,28 @@ class Simulator(nkAgent):
     result for the simulation.
     """
     #initialized the object
-    def __init__(self, folder_name, p_exp, iterations, time_step):
+    def __init__(self, graph_name, dist, risk, red_fact = 0.95, p_exp, p_conf):
 
-        with open(f'./{folder_name}/graph_40_nodes.pkl', 'rb') as f:
+        with open(f'./data/{graph_name}.pkl', 'rb') as f:
             self.graph = pickle.load(f)  # class attribute
-
         # loads the stored NK landscape
-        with open(f'./{folder_name}/nk_landscape.pkl', 'rb') as f:
+
+        with open(f'./data/nk_landscape.pkl', 'rb') as f:
             self.model_array = pickle.load(f)  # class attribute
+
         self.G = self.graph.g #connected graph
-        self.iterations = iterations #Number of iterations to be performed for each combination
+        self.red_fact = red_fact #Reduction factor for risk in each time_step
+        self.iterations = 100 #Number of iterations to be performed for each combination
         self.core = self.graph.core #indexes of core nodes
         self.peri = self.graph.peri #indexes of periphery indexes
         self.n_agents = self.graph.n #number of total agents (Number of nodes in graph)
         self.p_connect = self.graph.p #probability of connection within the core nodes
-        self.risk = 0 #probability of risk taking
-        self.dist = 1 #Distance of exploration
-        self.time_step = time_step #Max number of time steps to search the space
+        self.risk = risk #probability of risk taking
+        self.dist = dist #Distance of exploration
+        self.time_step = 200 #Max number of time steps to search the space
         self.assignments = ['exp_core', 'exp_peri', 'random'] #Assignments to agents for exploration
         self.p_exp = p_exp #Probability of exploration
+        self.p_conf = p_conf #probability of confirmation
         self.result = self.main_loop() #running the simulation to get the result
 
     @staticmethod
@@ -70,6 +71,8 @@ class Simulator(nkAgent):
         assign = G.node[j]['agent'].assign
         neigh = G.neighbors(j)
         score_list = []
+        is_exp = np.random.choice(['explore', 'confirm'], p = [self.p_exp, (1-self.p_exp)])
+        is_conf = np.random.choice(['explore', 'confirm'], p = [self.exp_conf, (1-self.exp_conf)])
 
         for i in neigh:
             score_list.append([i, G.node[i]['agent'].score])
@@ -77,25 +80,25 @@ class Simulator(nkAgent):
 
         if assign == 'exp_core' and j in core and G.node[j]['agent'].score < max_neigh[1] :
 
-            if np.random.rand() <= p:
+            if is_exp == 'explore':
                 G.node[j]['agent'].mutate(alpha)
-            else:
+            elif is_conf == 'confirm':
                 G.node[j]['agent'].sol = G.node[max_neigh[0]]['agent'].sol
                 G.node[j]['agent'].score = G.node[max_neigh[0]]['agent'].score
 
         elif assign == 'exp_peri' and j in peri and G.node[j]['agent'].score < max_neigh[1] :
 
-            if np.random.rand() <= p:
+            if is_exp == 'explore':
                 G.node[j]['agent'].mutate(alpha)
-            else:
+            elif is_conf == 'confirm':
                 G.node[j]['agent'].sol = G.node[max_neigh[0]]['agent'].sol
                 G.node[j]['agent'].score = G.node[max_neigh[0]]['agent'].score
 
         elif assign == 'random' and  G.node[j]['agent'].score < max_neigh[1]:
 
-            if np.random.rand() <= p:
+            if is_exp == 'explore':
                 G.node[j]['agent'].mutate(alpha)
-            elif G.node[j]['agent'].score < max_neigh[1]:
+            elif is_conf == 'confirm':
                 G.node[j]['agent'].sol = G.node[max_neigh[0]]['agent'].sol
                 G.node[j]['agent'].score = G.node[max_neigh[0]]['agent'].score
 
@@ -146,15 +149,23 @@ class Simulator(nkAgent):
                     results[f'model_{m}']['assignments'][f'assignment_{a}']['iterations'][f'iter_{i}'] = {}
                     agent_array = []
                     for agen in range(len(self.G)):
+                        if self.dist == 'fixed':
+                            d = 1
+                        elif self.dist == 'variable':
+                            d = np.random.choice([1,2,3], p = [0.25,0.5,0.25])
                         iniSol = np.random.randint(2, size=model.n)
-                        agent_array.append(nkAgent(model= model, iniSol=iniSol, risk=self.risk, assign=ass, dist= self.dist))
+                        agent_array.append(nkAgent(model= model, iniSol=iniSol, risk=self.risk, assign=ass, dist= ))
                     self.G = self.graph_init(G= self.G, agent = agent_array)
+                    if self.risk == 0.5:
+                        red = self.red_fact
+                    else:
+                        red = 1
                     alpha = 1
                     s = []
                     for j in range(self.time_step):
                         score = self.network_update(alpha)
                         s.append(score)
-                        alpha = 0.95 * alpha
+                        alpha = red * alpha
                     results[f'model_{m}']['assignments'][f'assignment_{a}']['iterations'][f'iter_{i}'][
                         'agents'] = agent_array
                     results[f'model_{m}']['assignments'][f'assignment_{a}']['iterations'][f'iter_{i}']['score'] = s
@@ -164,45 +175,22 @@ class Simulator(nkAgent):
         return results
 
 
-def plot_all(result, title):
-    fig, ax = plt.subplots(1, 3, sharex='row', figsize=(18, 5))
-    s_model = []
-    x = 10
-    for i in range(len(result.keys())):
-        s_ass = []
-        mmax = result[f'model_{i}']['max']
-        mmin = result[f'model_{i}']['min']
-        for a in range(3):
-            s_it = []
-            for it in range(len(result[f'model_{i}']['assignments'][f'assignment_{a}']['iterations'].keys())):
-                score = result[f'model_{i}']['assignments'][f'assignment_{a}']['iterations'][f'iter_{it}']['score']
-                # s_it.append(score)
-                # s_it.append([((sc-mmin)/(mmax-mmin)) for sc in score])
-                s_it.append([((1 / np.exp(x)) * (np.exp(x * sc) - 1)) for sc in score])
-            s_ass.append(np.mean(np.array(s_it), axis=0))
-        s_model.append(np.array(s_ass))
-    ax[0].plot(np.mean(np.array(s_model)[:10], axis=0).T, linewidth=1)
-    ax[1].plot(np.mean(np.array(s_model)[10:20], axis=0).T, linewidth=1)
-    ax[2].plot(np.mean(np.array(s_model)[20:], axis=0).T, linewidth=1)
-    ax[0].set_title('Complexity low, k = 2')
-    ax[1].set_title('Complexity med, k = 4')
-    ax[2].set_title('Complexity high, k = 8')
-    fig.suptitle(title)
-    plt.legend(['exp_core', 'exp_peri', 'random'])
-    plt.savefig(f'./data/{title}.png')
 
+###########################################################################################################################################################
 
-
+with open('./data/list_of_iterations.pkl', 'rb') as f:
+    simulation_lsit = pickle.load(f)
 
 if __name__ == '__main__':
-    start = time.time()
-    p = Pool(os.cpu_count())
-    res = p.starmap(Simulator, [('data', 0.5, 50,50),('data', 0.6, 50,50),('data', 0.7, 50,50),('data', 0.8, 50,50),('data', 0.9, 50,50)])
     i = 0
-    for r in res:
-        with open(f'./data/multiprocess_results_{i}', 'wb') as f:
-            pickle.dump(r.result,f)
-        i+=1
-    stop = time.time()
+    for sublist in simulation_lsit:
+        start = time.time()
+        p = Pool(os.cpu_count())
+        res = p.starmap(Simulator, sublist)
+        for r in res:
+            with open(f'./data/run_list_of_iteration_{i}.pkl', 'wb') as f:
+                pickle.dump(r.result,f)
+            i+=1
+        stop = time.time()
 
-    print(f'Total time taken for the process to finish is: {(stop-start)/60} Minutes')
+        print(f'Total time taken for the process to finish is: {(stop-start)/60} Minutes')
