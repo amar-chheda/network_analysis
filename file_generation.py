@@ -4,7 +4,6 @@ import numpy as np
 import networkx as nx
 import  pickle
 import os
-from funcy import chunks
 
 models_array = []
 for i in range(40):
@@ -50,7 +49,6 @@ prisk = [0,0.05,0.1,0.5]
 
 fnames = []
 for name in os.listdir('./data'):
-    print(name, name.startswith("agent"))
     if name.startswith("agent"):
         fnames.append(name)
 
